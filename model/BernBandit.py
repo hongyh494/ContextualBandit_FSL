@@ -43,7 +43,7 @@ class BernoulliDynamicBandit:
 
         # Initialize arms and their corresponding Bernoulli reward probabilities
         self.mu = 0.5 + np.array(range(1, K+1))/10  # Mean reward probabilities for each arm
-        self.p = np.random.uniform(size=K)   # Actual probabilities for each arm
+        self.p = np.random.uniform(size=K)/5   # Actual probabilities for each arm
 
 
         # Dynamic J 要调整

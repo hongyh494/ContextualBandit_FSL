@@ -21,7 +21,7 @@ if __name__ == "__main__":
     # 创建一个10臂的Bernoulli动态老虎机模型
 
     seed = int(2)
-    K = 10  # 拉动的臂数
+    K = 3  # 拉动的臂数
     J_distribution = ('static', 5)  # 离散分布
     # J_distribution = ('discrete', [0, 1], [0.5, 0.5])  # 离散分布
 
