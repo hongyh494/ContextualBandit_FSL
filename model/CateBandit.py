@@ -1,0 +1,3 @@
+
+class CategoricalDynamicBandit:
+    pass
