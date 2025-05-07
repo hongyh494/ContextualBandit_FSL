@@ -1,0 +1,71 @@
+We formulate the MAB strategy in the context of regret minimization. We define the Q function for every action kt, as $Q(k_t)$, indicating that the reward obtained from playing arm, $k$, at time step t. Provided a policy $\pi$, the expected reward, $V_t$ from taking action $k_t$ can be expressed as,  
+
+$$ V_t^{\pi^*}(s_t) =  \sum_k  Q(a_t)P (a_t|\pi) \quad (1)$$ 
+$a_t$ is the action undertaken in the current time, according to policy $\pi$. In our application, we defined Vt as the value of the state at time t. However, the reward function,$Q(s, a_t)$ is unknown. We denote the optimal value at time t as $V_t^∗$, and under the optimal policy $\pi^∗$. 
+
+$$ V_t(\pi^*) = \max_\pi V_t(\pi) $$  
+$$ V_t^{\pi^*}(s) = \max V_t(s)$$
+The parameters, θ, which generate Q(kt) may or may not change with respect to time, depending on the stationarity of the reward function. Provided that any action k, can be selected depending on the policy, cumulative regret of a policy, upon completion of the game at the final time epoch T , is defined as RT , 
+$$ R(T) =  \sum_{t=0}^T  [  V_t^{\pi^*}(s_t) - V_t^{\pi}(s_t)  ]  $$  Where Q(kt) is a constant for each k an time interval, t, depending on the stipulations in Section 2.2. The MAB strategy’s objective is to minimize the cumulative regret from measurements of the reward function of each arm played that epoch. 
+
+
+017均值截断估计
+\section{截断均值估计算法(Truncate Mean Estimation)}
+
+\subsection{}section{补偿机制偏差分析与截断均值修正方法}
+
+在多臂老虎机(MAB)问题中，补偿机制$J$被设计用于缓解探索-利用困境。当某个臂连续$J$次未产生正奖励时，系统将强制给予$J$单位的补偿奖励。该机制虽然提高了算法鲁棒性，但会导致传统样本均值估计量产生偏差：
+
+\begin{equation}
+    \text{传统估计量偏差: } \mathbb{E}[\hat{\mu}_k] - \mu_k = \frac{J \cdot p_{\text{fail}}^J}{1 - p_{\text{fail}}}
+\end{equation}
+
+其中$p_{\text{fail}}$为单次失败的期望概率。补偿奖励$J$作为异常值(outlier)会显著扭曲回报分布，导致经典UCB、$\epsilon$-greedy等算法出现次优甚至糟糕的选择。
+
+\subsection{截断均值修正原理}
+截断均值估计算法通过引入阈值$\alpha$对观测奖励进行非线性变换：
+
+\begin{equation}
+    \hat{R}^\alpha_k = \min(R_k, \alpha) = -(R_k-\alpha)_- + \alpha
+\end{equation}
+
+该变换将补偿奖励$J$截断至阈值$\alpha$，有效控制异常值影响。更新后的均值估计量定义为：
+
+\begin{equation}
+    \hat{\mu}^\alpha_k(t) = \frac{1}{N_k(t)} \sum_{i=1}^t \hat{R}^\alpha_k \mathbb{I}\{ a_i = a_k \}\text{，} k\in {\{ 0,\dots ,K-1\}}
+\end{equation}
+
+\subsection{理论特性}
+\begin{theorem}[偏差控制]
+当阈值$\alpha$满足$J \cdot p_{\text{fail}}^{J} \leq \alpha \leq J$时，修正估计量的偏差上界为：
+\begin{equation}
+    |\mathbb{E}[\hat{\mu}^\alpha_k] - \mu_k| \leq \frac{\alpha \cdot p_{\text{fail}}^J}{1 - p_{\text{fail}}}
+\end{equation}
+\end{theorem}
+
+\begin{proof}(概要)
+通过分解奖励流为正常奖励$R_k < \alpha$与截断奖励$R_k \geq \alpha$，利用几何分布性质计算期望偏差。
+\end{proof}
+
+\begin{algorithm}[H]
+\caption{阈值截断均值估计} 
+\label{algo:truncated-bandit}
+\begin{algorithmic}[1]
+\REQUIRE 臂集合$\mathcal{A}$，阈值$\alpha$，时间范围$T$
+\ENSURE 最优臂识别
+\STATE 初始化计数器$N_k \gets 0$，累计奖励$S_k \gets 0,\ \forall k \in \mathcal{A}$
+\FOR{$t=1$ \TO $T$}
+\STATE 选择臂$a_t = \arg\max_k (S_k/N_k + \sqrt{2\log t/N_k})$ \COMMENT{UCB策略}
+\STATE 获得奖励$R_t$，计算截断值$\hat{R}_t = \min(R_t, \alpha)$
+\STATE 更新计数器：$N_{a_t} \gets N_{a_t} + 1$
+\STATE 更新累计：$S_{a_t} \gets S_{a_t} + \hat{R}_t$
+\ENDFOR
+\end{algorithmic}
+\end{algorithm}
+
+截断均值统计量(Truncated Mean Estimator)：
+$$\hat{R}^\alpha_k = -(R_k-\alpha)_- + \alpha$$
+
+$$
+\hat{\mu}^\alpha_k(t) = \frac{1}{N_k(t)} \sum_{i=1}^t \hat{R}^\alpha_k \mathbb{I} \{ a_i = a_k \}
+$$

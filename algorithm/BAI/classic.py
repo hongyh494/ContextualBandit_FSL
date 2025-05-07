@@ -18,6 +18,7 @@ class Solver:
         self.regret = 0. # 记录累积遗憾值
         self.actions = []  # 维护一个列表, 记录每一步的动作选择
         self.regrets = []  # 维护一个列表, 记录每一步的累计regret
+        self.rewards = [[] for _ in range(self.bandit.K)]  # 维护一个列表, 记录每一步的奖励以及归属的臂
         self.env = env  # 当前状态，历史累计连输
         self.kwargs = kwargs
 
@@ -28,7 +29,7 @@ class Solver:
         :return: None
         """
         # self.regret += self.bandit.get_optimal_reward() - self.bandit.get_reward(k)  # 这个是实际观测的，好像不是mu?
-        self.regret += self.bandit.get_optimal_mu() - self.bandit.get_mu()[k]  # 这个是给定的mu        
+        self.regret += self.bandit.get_optimal_mu() - self.bandit.get_mu_p()[k]  # 这个是给定的mu        
         self.regrets.append(self.regret)
 
     def run_one_step(self):
@@ -190,6 +191,94 @@ class GaussianTS(Solver):
         self.sigma[action] = np.sqrt((self.sigma[action]**2 * self.counts[action] + (reward - self.mu[action])**2) / (self.counts[action] + 1))
         
         return action
+    
+class ExponentialTS(Solver):
+    """
+    Exponential Thompson Sampling算法 (时间间隔型奖励，如用户停留时间)
+    """
+    def __init__(self, bandit, env=None, **kwargs):
+        super(ExponentialTS, self).__init__(bandit, env, **kwargs)
+        self.alpha = np.ones(self.bandit.K)  # Gamma分布形状参数 (先验α=1)
+        self.beta = np.ones(self.bandit.K)   # Gamma分布逆尺度参数 (先验β=1)
+
+    def run_one_step(self):
+        # 从Gamma后验中采样λ (指数分布的参数)
+        lambda_samples = np.random.gamma(self.alpha, 1 / self.beta)
+        action = np.argmin(lambda_samples)  # 注意：指数分布越小越好
+        
+        reward = self.bandit.get_reward(action)
+        
+        # 更新Gamma后验参数
+        self.alpha[action] += 1
+        self.beta[action] += reward
+        
+        return action
+
+class PoissonTS(Solver):
+    """
+    Poisson Thompson Sampling算法 (计数型奖励，如点击次数)
+    """
+    def __init__(self, bandit, env=None, **kwargs):
+        super(PoissonTS, self).__init__(bandit, env, **kwargs)
+        self.alpha = np.ones(self.bandit.K)  # Gamma分布形状参数 (先验α=1)
+        self.beta = np.ones(self.bandit.K)   # Gamma分布逆尺度参数 (先验β=1)
+
+    def run_one_step(self):
+        # 从Gamma后验中采样λ (泊松分布的参数)
+        lambda_samples = np.random.gamma(self.alpha, 1 / self.beta)
+        action = np.argmax(lambda_samples)
+        
+        reward = self.bandit.get_reward(action)
+        
+        # 更新Gamma后验参数
+        self.alpha[action] += reward
+        self.beta[action] += 1
+        
+        return action
+    
+def plot_regret_single(ax, solvers, solver_names):
+    """生成累积懊悔随时间变化的图像。输入solvers是一个列表,列表中的每个元素是一种特定的策略。
+    而solver_names也是一个列表,存储每个策略的名称"""
+    for idx, solver in enumerate(solvers):
+        time_list = range(len(solver.regrets))
+        ax.plot(time_list, solver.regrets, label=solver_names[idx])
+    ax.set_xlabel('Time steps')
+    ax.set_ylabel('Cumulative regrets')
+    ax.set_title('%d-armed bandit' % solvers[0].bandit.K)
+    ax.legend()
+
+def plot_mu_alpha_single(ax, solvers, solver_names, alpha_list):
+    """ 生成不同alpha的不同估计的图像
+    """
+    for solver in solvers:
+        for arm in range(solver.bandit.K):
+            for idx, solver in enumerate(solvers):
+                estimated_alpha_mu = np.array(solver.estimated_alpha_mu)  # 转换为numpy数组
+                ax.plot(alpha_list, estimated_alpha_mu[arm, :], label=f"{solver_names[idx]} - Arm {arm}")
+                # 标注数值点
+                # for alpha, mu in zip(alpha_list, estimated_alpha_mu[arm, :]):
+                ax.scatter(alpha_list, estimated_alpha_mu[arm, :],  s=10)  # 用红色空心圆标记点
+    ax.set_xlabel('Alpha')
+    ax.set_ylabel('Estimated Mean')
+    ax.set_title('Estimated Mean vs Alpha for Different Arms')
+    ax.legend()
+
+def plot_p_estimate_single(ax, solvers, solver_names, t_list):
+    """ 生成不同alpha的不同估计的图像
+    """
+    for solver in solvers:
+        for arm in range(solver.bandit.K):
+            for idx, solver in enumerate(solvers):
+                estimated_hit = np.array(solver.estimated_hit)  # 转换为numpy数组
+                ax.plot(t_list[10:], estimated_hit[arm, :][10:], label=f"{solver_names[idx]} - Arm {arm}")
+                # 标注数值点
+                # for alpha, mu in zip(alpha_list, estimated_alpha_mu[arm, :]):
+                ax.scatter(t_list[10:], estimated_hit[arm, :][10:], s=10)  # 用红色空心圆标记点
+    ax.set_xlabel('pullss')
+    ax.set_ylabel('Estimated P')
+    ax.set_title('Estimated P vs pulls for Different Arms')
+    ax.legend()
+    
 
 def plot_results(solvers, solver_names):
     """生成累积懊悔随时间变化的图像。输入solvers是一个列表,列表中的每个元素是一种特定的策略。
@@ -202,7 +291,6 @@ def plot_results(solvers, solver_names):
     plt.title('%d-armed bandit' % solvers[0].bandit.K)
     plt.legend()
     # plt.show()
-
 
 if __name__ == "__main__":
     

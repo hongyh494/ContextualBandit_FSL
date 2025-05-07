@@ -7,11 +7,14 @@ import matplotlib.pyplot as plt
 from scipy.optimize import fsolve
 from joblib import Parallel, delayed
 
+# 设置打印选项，保留四位小数
+np.set_printoptions(precision=3)
+
 # Bernoulli Reward Distribution (两点分布) Dynamic Futurity @ multi-armed ver.
 class BernoulliDynamicBandit:
     def __init__(self, K: int=10, 
                 J_distribution: str = 'discrete', df: int = None, num_steps: int = 1000,
-                seed=None):
+                seed=None, error_plot=False):
         """
         Bernoulli奖励分布的多臂老虎机模型, J值静态/动态版
 
@@ -41,24 +44,14 @@ class BernoulliDynamicBandit:
             np.random.seed(seed)
             random.seed(seed)
 
-        # Initialize arms and their corresponding Bernoulli reward probabilities
-        self.mu = 0.5 + np.array(range(1, K+1))/10  # Mean reward probabilities for each arm
-        self.p = np.random.uniform(size=K)/5   # Actual probabilities for each arm
-
-
-        # Dynamic J 要调整
-        if self.J_distribution[0] != 'static':
-            for i in range(K):
-                self.J = self.sample_J()
-                # adjust p 
-                self.mu[i] = self.calculate_p(self.J)  # Calculate mean reward probability
-                self.p[i] = self.mu[i]  # Initialize actual probabilities with mean values
+        # TODO 需要手动设置的参数：老虎机自身奖励概率
+        self.p = np.linspace(1/15, 3/10, K)    # Actual probabilities for each arm
 
         # Static J
         if self.J_distribution[0] == 'static':
             
             self.J = self.J_distribution[1]
-            print(f"Static J Initialized with J={self.J}")
+            # self.mu = (1 - self.J * self.p * (1 - self.p)**self.J/(1 - (1 - self.p)**self.J)) / self.p  # Calculate mean reward probability
 
         # Dynamic J
         else:
@@ -68,9 +61,10 @@ class BernoulliDynamicBandit:
                 # 标识为离散分布
                 self.J_discrete = True
 
-                # 解包J的值分布，概率分布
+                # 解包J的取值范围集合，对应的概率分布
                 J_values, probabilities = self.J_distribution[1], self.J_distribution[2]
                 self.J_values = np.array(J_values)
+                self.probs = np.array(probabilities)
                 self.cumulative_probs = np.cumsum(probabilities)
                 if not np.isclose(self.cumulative_probs[-1], 1.0):  # 验证输入的离散概率分布是正确的
                     raise ValueError("Probabilities must sum to 1.")
@@ -92,10 +86,18 @@ class BernoulliDynamicBandit:
             else:
                 raise ValueError("Unsupported J_distribution type.")
 
-            # init J -> clac p
+            # given p -> init/sample J -> calc mu
             self.J = self.sample_J()
-            self.p = self.calculate_p(self.J)
-            print(f"{self.J_distribution[0]} Distribution Initialized with J={self.J}, calculated p={self.p:.4f}")
+
+        # given p -> init/sample J -> calc mu
+        self.J_history = {self.J:1}  # 记录J值变化的历史dict 初始化
+        #  self.mu = (1 - self.J * self.p * (1 - self.p)**self.J/(1 - (1 - self.p)**self.J)) / self.p
+        self.mu = self.calculate_mu()  # Calculate mean reward
+
+        if error_plot:
+            pass
+        else:
+            print(f"{self.J_distribution[0]} Distribution Initialized with J={self.J}, calculated p={self.p}")
             print(f"{self.J_distribution[0]} 分布 初始化 J={self.J}, 计算得到单局win rate p={self.p}")
 
     def step(self, action):
@@ -105,26 +107,42 @@ class BernoulliDynamicBandit:
         :return: 奖励和下一个状态
         """
         reward = self.get_reward(action)
-        next_state = self.get_next_state(action)  # TODO 连输状态J
+        next_state = self.get_next_state()  # TODO 连输状态J
         return reward, next_state
+    
+    def get_next_state(self):
+        """
+        获取下一个状态
+        :param action: 被拉动的臂
+        :return: 下一个状态
+        """
+        # 这里可以根据需要实现状态转移逻辑
+        return self.loss_state
     
     def sample_J(self):
         """
-        TODO 
-        抽取J值
+        Dynamic mode, 抽样J值
         :return: 抽取的J值
         """
+
         if self.J_discrete:
-            rand_num = random.random()
-            for i, prob in enumerate(self.cumulative_probs):
-                if rand_num < prob:
-                    return self.J_values[i]
+            return np.random.choice(self.J_values, p=self.probs)
         else:
             return np.random.chisquare(self.df)
         
     def calculate_p(self, J):
+        # 原来是Dynamic J下调整p值使老虎机单臂公平
         pass
     
+    def calculate_mu(self):
+        """
+        计算均值
+        :param p: 概率
+        :return: 均值
+        """
+        return (1 - self.J * self.p * (1 - self.p)**self.J/(1 - (1 - self.p)**self.J)) / self.p
+
+
     def get_reward(self, action: int = None):
         """
         摇一次臂, 获取reward, 更新loss_state
@@ -136,6 +154,7 @@ class BernoulliDynamicBandit:
         if action is None or action < 0 or action >= len(self.p):
             raise ValueError("Invalid action. Action must be within the range of available arms.")
 
+        # Bernoulli 奖励部分
         if random.random() < self.p[action]:
             reward = self.mu[action]  # 根据均值生成奖励
             self.loss_state = 0  # 重置loss_state
@@ -149,14 +168,24 @@ class BernoulliDynamicBandit:
             # print(f"Futurity 在第 {self.steps_now} 次变化")
             reward = self.J  # 达到J值，返回J作为奖励
             self.loss_state = 0  # 重置loss_state
-            self.J_active_times += 1  # 更新触发次数
-        
+            self.J_active_times += 1  # 更新奖励触发次数
+
+            if self.J_distribution[0] != 'static':
+                # 更新J值 采样一下
+                self.J = self.sample_J()
+
+            # Update J sample history 验证是否触发过不同的J
+            if self.J not in self.J_history:
+                self.J_history[self.J] = 1
+            else:
+                self.J_history[self.J] += 1
+
         return reward
     
     def get_optimal_reward(self):
         return None
     
-    def get_mu(self):
+    def get_mu_p(self):
         """
         返回所有臂的奖励均值列表
 
@@ -175,3 +204,15 @@ class BernoulliDynamicBandit:
         """
 
         return np.max(self.mu*self.p)
+    
+    def reset(self):
+        """
+        重置老虎机状态
+        :return: None
+        """
+        self.loss_state = 0
+        self.J_change_cum = 0
+        self.J_active_times = 0
+        self.J_history = {self.J:1}
+
+        return self.loss_state

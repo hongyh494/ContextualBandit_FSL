@@ -1,0 +1,30 @@
+Static J Initialized with J=2000000
+所有手臂均值： [0.02 0.04 0.06 0.08 0.1 ]
+所有手臂真实概率p： [0.4453 0.3086 0.4832 0.4451 0.4401]
+所有手臂真实奖励mu： [0.0449 0.1296 0.1242 0.1797 0.2272]
+epsilon-贪婪算法的累积懊悔为： 12.299999999999969
+Futurity Mechanism激发次数 0
+UCB算法的累积懊悔为： 95.06000000000067
+Futurity Mechanism激发次数 0
+Thompson Sampling算法的累积懊悔为： 36.63999999999988
+Futurity Mechanism激发次数 0
+Gaussian TS算法的累积懊悔为： 122.84000000000103
+Futurity Mechanism激发次数 0
+Exponential TS算法的累积懊悔为： 13.219999999999908
+Futurity Mechanism激发次数 0
+Poisson TS算法的累积懊悔为： 37.23999999999987
+Futurity Mechanism激发次数 0
+
+
+Static J Initialized with J=2
+所有手臂均值： [0.5 1. ]
+所有手臂真实概率p： [0.3333 0.6667]
+所有手臂真实奖励mu： [1.5 1.5]
+epsilon-贪婪算法的累积懊悔为： 58.5
+Futurity Mechanism激发次数 413
+UCB算法的累积懊悔为： 77.5
+Futurity Mechanism激发次数 836
+Exponential TS算法的累积懊悔为： 37.5
+Futurity Mechanism激发次数 1245
+Poisson TS算法的累积懊悔为： 30.0
+Futurity Mechanism激发次数 1650
