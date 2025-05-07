@@ -1,24 +1,31 @@
-### 设计公平
-老虎机
 
-先对单个老虎机，在reward function从Bernoulli到三点分布/奖励J随时间变化（固定）设置公平性，
-累计失误应该不是次数，本质上是累计损失多少钱我退还你多少钱。
-#### Bernoulli rewards
-    数值实验抽path取平均（好像后面还有修正概率，例如）
-    同J  公平
-    随机抽样 ： 1. J在3和5来回摆动，有限，拆链法，两个链上是公平的，渐进平稳，因此reward期望也是0.
-               2. J是离散分布，奥列夫0的数目，自然数集合，是否还是公平的（抽样法）
-               3. J是连续分布？好像很难证明渐进期望=0，e.x. 卡方分布，因为有偏性
+# RL-Futurity Slot Machine
+Fair Futurity Slot Machine Design & Best Arm Identification & Optimal Policy
 
-#### 三点分布Rewards (这个上面设计手臂才有意义，因为不能随意clip)
-    识别好的手臂，即使在公平上面可能也是有意义的，如果AB两个arm的分布不同，可以用一个凹的效用函数来对两个不同的arm 但是连在同一个J上面的机器，（抽取不同的arm的两人对赌。有意义）
+## 1.Design One-arm Fair Bandit
+*Static Compensation :*
 
-    1. 固定threshold 证明渐进期望=0 应该是例如{-1:0.8 , 1:0.1, 2:0.1} 要修正J的reward 5-0.1*1/p  p是连续5次出现不好的概率,也可以用数值实验来证明p是稳定的
-    2. 随机threshold 然后累计亏损超过J元后实际亏J+S我就退你J+S，退多少补多少，可能收入就不渐进稳定了
+Futurity Mechanism J keep static in long run
 
-#### 多点分布
-固定Threshold
-随机连续的卡方sampling 
-#### 连续/高斯分布   
-固定Threshold
-随机连续的卡方sampling 
+*Dynamic Compensation :*
+
+Futurity Mechanism J sample from a set/distribution
+and adapt one-arm $\mu$ to satisfy asymptotic fairness 
+     
+    Random Sampling:
+    1. J oscillates between 3 and 5, limited, using the chain-splitting method. The two chains are fair and asymptotically stable, so the expected reward is also 0.
+    2. J follows a discrete distribution, e.g., the number of zeros in a sequence or a set of natural numbers. Is it still fair? (Sampling method)
+    3. J follows a continuous distribution? It seems difficult to prove that the asymptotic expectation equals 0, e.g., Chi-squared distribution, due to its bias.
+
+## Best Arm Identification - RHE
+*Fixed-budget Setting* :
+Error rate upper bound satisfy
+$$
+e_{T_0} \leq 2K\exp\left(-\frac{T_0\Delta_{i^*}^2}{2K} \right)
+$$
+
+![bai](output/bai/error_rate_15.png)
+
+## Optimal Policy based on K threshold/Sarsa/DQN
+
+![bai](output/policy/Static_K=4.png)
